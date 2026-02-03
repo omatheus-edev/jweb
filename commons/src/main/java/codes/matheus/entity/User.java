@@ -17,6 +17,12 @@ public final class User {
         this.email = email;
     }
 
+    public User(long id, @NotNull Username username, @NotNull String email) {
+        this.id = id;
+        this.username = username;
+        this.email = email;
+    }
+
     public long getId() {
         return id;
     }
