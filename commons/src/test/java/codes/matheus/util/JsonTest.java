@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public final class JsonTest {
     @Test
     void testSerializeObject() {
-        @NotNull User user = new User(new Username("Matheus"), "mc2019750@gmail.com");
+        @NotNull User user = new User(1, new Username("Matheus"), "mc2019750@gmail.com");
         @NotNull JsonObject object = Json.serialize(user);
 
         assertEquals(1, object.get("id").getAsInt());
@@ -25,10 +25,10 @@ public final class JsonTest {
 
     @Test
     void testSerializeArray() {
-        @NotNull User user1 = new User(new Username("Carlos"), "sla@email.com");
-        @NotNull User user2 = new User(new Username("junior"), "jr@email.com");
-        @NotNull User user3 = new User(new Username("lucas"), "lc@email.com");
-        @NotNull User user4 = new User(new Username("henrique"), "hrq@email.com");
+        @NotNull User user1 = new User(1, new Username("Carlos"), "sla@email.com");
+        @NotNull User user2 = new User(2, new Username("junior"), "jr@email.com");
+        @NotNull User user3 = new User(3, new Username("lucas"), "lc@email.com");
+        @NotNull User user4 = new User(4, new Username("henrique"), "hrq@email.com");
         @NotNull List<User> users = new ArrayList<>();
         users.add(user1);
         users.add(user2);
@@ -45,7 +45,7 @@ public final class JsonTest {
 
     @Test
     void testDeserialize() {
-        @NotNull User user = new User(new Username("Matheus"), "mc2019750@gmail.com");
+        @NotNull User user = new User(1, new Username("Matheus"), "mc2019750@gmail.com");
         @NotNull JsonObject object = Json.serialize(user);
         @NotNull User copy = Json.deserializeObject(object.toString());
 

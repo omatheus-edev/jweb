@@ -52,7 +52,7 @@ public final class Username implements CharSequence {
 
     @Override
     public @NotNull String toString() {
-        return "name=" + name;
+        return name;
     }
 
     @Override

@@ -8,14 +8,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public final class User {
     private final long id;
-    private final @NotNull Username username;
+    private @NotNull Username username;
     private @NotNull String email;
-
-    public User(@NotNull Username username, @NotNull String email) {
-        this.id = GeneratedID.incrementId();
-        this.username = username;
-        this.email = email;
-    }
 
     public User(long id, @NotNull Username username, @NotNull String email) {
         this.id = id;
@@ -31,6 +25,10 @@ public final class User {
         return username;
     }
 
+    public void setUsername(@NotNull String username) {
+        this.username = new Username(username);
+    }
+
     public @NotNull String getEmail() {
         return email;
     }
@@ -42,7 +40,8 @@ public final class User {
     @Override
     public String toString() {
         return "User{" +
-                ", name=" + username +
+                "id=" + id +
+                ", username=" + username +
                 ", email='" + email + '\'' +
                 '}';
     }
@@ -57,14 +56,5 @@ public final class User {
     @Override
     public int hashCode() {
         return Objects.hashCode(id);
-    }
-
-    private static final class GeneratedID {
-        private static final @NotNull AtomicLong id = new AtomicLong(0);
-
-        @Range(from = 0, to = Long.MAX_VALUE)
-        private static long incrementId() {
-            return id.incrementAndGet();
-        }
     }
 }
