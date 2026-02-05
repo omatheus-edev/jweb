@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,10 +33,40 @@ public final class UserHandler implements HttpHandler {
     }
 
     private void get(@NotNull HttpExchange exchange) throws IOException {
-        @NotNull String response = Json.serialize(users).toString();
-        exchange.getResponseHeaders().add("Content-Type", "application/json");
-        exchange.sendResponseHeaders(200, response.getBytes().length);
+        @NotNull String path = exchange.getRequestURI().getPath();
+        @NotNull String[] parts = path.split("/");
+        @NotNull String response = "";
+        int status = 200;
 
+        if (parts.length == 3) {
+            response = Json.serialize(users).toString();
+        } else if (parts.length == 4 && parts[3].matches("\\d+")) {
+            try {
+                long id = Long.parseLong(parts[3]);
+                @Nullable User found = users.stream().filter(u -> u.getId() == id).findFirst().orElse(null);
+
+                if (found != null) {
+                    response = Json.serialize(found).toString();
+                } else {
+                    @NotNull JsonObject error = new JsonObject();
+                    error.addProperty("error", "user not found");
+                    status = 404;
+                }
+            } catch (NumberFormatException e) {
+                @NotNull JsonObject error = new JsonObject();
+                error.addProperty("error", "invalid id");
+                response = error.toString();
+                status = 400;
+            }
+        } else {
+            @NotNull JsonObject error = new JsonObject();
+            error.addProperty("error", "path not found");
+            response = error.toString();
+            status = 400;
+        }
+
+        exchange.getResponseHeaders().add("Content-Type", "application/json");
+        exchange.sendResponseHeaders(status, response.getBytes(StandardCharsets.UTF_8).length);
         printResponse(exchange, response);
     }
 
@@ -66,7 +97,7 @@ public final class UserHandler implements HttpHandler {
             printResponse(exchange, response);
         }
 
-        long id;;
+        long id;
         try {
             id = Long.parseLong(parts[3]);
         } catch (NumberFormatException e) {
