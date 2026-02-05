@@ -48,6 +48,17 @@ public final class Json {
         }
     }
 
+    public static @NotNull String serialize(@NotNull String key, @NotNull String value) {
+        try (@NotNull JsonTreeWriter writer = new JsonTreeWriter()) {
+            writer.beginObject();
+            writer.name(key).value(value);
+            writer.endObject();
+            return writer.get().getAsString();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to serialize: " + e.getMessage());
+        }
+    }
+
     public static @NotNull User deserializeObject(@NotNull String json) {
         @NotNull JsonObject object = JsonParser.parseString(json).getAsJsonObject();
         long id = object.get("id").getAsLong();

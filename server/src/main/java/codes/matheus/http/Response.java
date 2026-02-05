@@ -1,5 +1,6 @@
 package codes.matheus.http;
 
+import codes.matheus.util.Json;
 import com.sun.net.httpserver.HttpExchange;
 import org.jetbrains.annotations.NotNull;
 
@@ -56,13 +57,23 @@ public final class Response {
             return this;
         }
 
-        public Builder headers(@NotNull String key, @NotNull String value) {
+        public Builder header(@NotNull String key, @NotNull String value) {
             this.headers.put(key, value);
             return this;
         }
 
         public Builder body(@NotNull String body) {
             this.body = body.getBytes(StandardCharsets.UTF_8);
+            return this;
+        }
+
+        public Builder error(@NotNull String message) {
+            return body(Json.serialize("error", message));
+        }
+
+        public Builder noContent() {
+            this.status = HttpStatus.NO_CONTENT;
+            this.body = null;
             return this;
         }
 
