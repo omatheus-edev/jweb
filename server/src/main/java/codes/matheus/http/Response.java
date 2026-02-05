@@ -1,0 +1,73 @@
+package codes.matheus.http;
+
+import com.sun.net.httpserver.HttpExchange;
+import org.jetbrains.annotations.NotNull;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+
+public final class Response {
+    public static @NotNull Builder builder(@NotNull HttpExchange exchange) {
+        return new Builder(exchange);
+    }
+
+    private final @NotNull HttpExchange exchange;
+    private final @NotNull HttpStatus status;
+    private final @NotNull Map<String, String> headers;
+    private final byte[] body;
+
+    private Response(@NotNull Builder builder) {
+        this.exchange = builder.exchange;
+        this.status = builder.status;
+        this.headers = Map.copyOf(builder.headers);
+        this.body = builder.body;
+    }
+
+    public void send() throws IOException {
+        headers.forEach((key, value) -> exchange.getResponseHeaders().add(key, value));
+        long length = body != null ? body.length : -1;
+        exchange.sendResponseHeaders(status.getCode(), length);
+
+        if (body != null) {
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(body);
+            }
+        } else {
+            exchange.getResponseBody().close();
+        }
+    }
+
+    public final static class Builder {
+        private final @NotNull HttpExchange exchange;
+        private final @NotNull Map<String, String> headers = new HashMap<>();
+        private @NotNull HttpStatus status = HttpStatus.OK;
+        private byte[] body;
+
+        private Builder(@NotNull HttpExchange exchange) {
+            this.exchange = exchange;
+            headers.put("Content-Type", "application/json");
+        }
+
+        public Builder status(@NotNull HttpStatus status) {
+            this.status = status;
+            return this;
+        }
+
+        public Builder headers(@NotNull String key, @NotNull String value) {
+            this.headers.put(key, value);
+            return this;
+        }
+
+        public Builder body(@NotNull String body) {
+            this.body = body.getBytes(StandardCharsets.UTF_8);
+            return this;
+        }
+
+        public @NotNull Response build() {
+            return new Response(this);
+        }
+    }
+}

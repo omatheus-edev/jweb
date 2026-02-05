@@ -12,6 +12,9 @@ public final class User {
     private @NotNull String email;
 
     public User(long id, @NotNull Username username, @NotNull String email) {
+        if (email.isBlank()) {
+            throw new IllegalArgumentException("Email is blank");
+        }
         this.id = id;
         this.username = username;
         this.email = email;

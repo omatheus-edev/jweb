@@ -2,7 +2,6 @@ package codes.matheus.http;
 
 import codes.matheus.entity.User;
 import codes.matheus.util.Json;
-import com.google.gson.JsonObject;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.jetbrains.annotations.NotNull;
@@ -10,8 +9,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 public final class UserHandler implements HttpHandler {
@@ -29,114 +26,95 @@ public final class UserHandler implements HttpHandler {
             post(exchange);
         } else if (exchange.getRequestMethod().equals("DELETE")) {
             delete(exchange);
+        } else {
+            Response.builder(exchange)
+                    .status(HttpStatus.METHOD_NOT_ALLOWED)
+                    .headers("Allow", "GET, POST, DELETE")
+                    .body("method not allowed")
+                    .build().send();
         }
     }
 
     private void get(@NotNull HttpExchange exchange) throws IOException {
         @NotNull String path = exchange.getRequestURI().getPath();
         @NotNull String[] parts = path.split("/");
-        @NotNull String response = "";
-        int status = 200;
+        @NotNull Response.Builder response = Response.builder(exchange);
 
         if (parts.length == 3) {
-            response = Json.serialize(users).toString();
+            response.body(Json.serialize(users).toString());
         } else if (parts.length == 4 && parts[3].matches("\\d+")) {
+            long id;
             try {
-                long id = Long.parseLong(parts[3]);
-                @Nullable User found = users.stream().filter(u -> u.getId() == id).findFirst().orElse(null);
-
-                if (found != null) {
-                    response = Json.serialize(found).toString();
-                } else {
-                    @NotNull JsonObject error = new JsonObject();
-                    error.addProperty("error", "user not found");
-                    status = 404;
-                }
+                id = Long.parseLong(parts[3]);
             } catch (NumberFormatException e) {
-                @NotNull JsonObject error = new JsonObject();
-                error.addProperty("error", "invalid id");
-                response = error.toString();
-                status = 400;
+                response.status(HttpStatus.BAD_REQUEST).body("invalid id").build().send();
+                return;
+            }
+
+            @Nullable User found = users.stream().filter(u -> u.getId() == id).findFirst().orElse(null);
+            if (found != null) {
+                response.body(Json.serialize(found).toString());
+            } else {
+                response.status(HttpStatus.NOT_FOUND).body("user not found");
             }
         } else {
-            @NotNull JsonObject error = new JsonObject();
-            error.addProperty("error", "path not found");
-            response = error.toString();
-            status = 400;
+            response.status(HttpStatus.BAD_REQUEST).body("url invalid");
         }
 
-        exchange.getResponseHeaders().add("Content-Type", "application/json");
-        exchange.sendResponseHeaders(status, response.getBytes(StandardCharsets.UTF_8).length);
-        printResponse(exchange, response);
+        response.build().send();
     }
 
     private void post(@NotNull HttpExchange exchange) throws IOException {
-        @NotNull InputStream is = exchange.getRequestBody();
-        @NotNull String body = new String(is.readAllBytes());
+        @NotNull Response.Builder response = Response.builder(exchange);
 
-        @NotNull User user = Json.deserializeObject(body);
-        users.add(user);
+        if (exchange.getRequestURI().getPath().split("/").length != 3) {
+            response.status(HttpStatus.BAD_REQUEST).body("url invalid").build().send();
+            return;
+        }
 
-        @NotNull String response = Json.serialize(user).toString();
-        exchange.getResponseHeaders().add("Content-Type", "application/json");
-        exchange.sendResponseHeaders(201, response.getBytes().length);
-        printResponse(exchange, response);
+        try (InputStream input = exchange.getRequestBody()) {
+            @NotNull String body = new String(input.readAllBytes());
+
+            if (body.isBlank()) {
+                response.status(HttpStatus.BAD_REQUEST).body("body request is blank").build().send();
+                return;
+            }
+
+            @NotNull User user = Json.deserializeObject(body);
+            users.add(user);
+
+            response.status(HttpStatus.CREATED).body(Json.serialize(user).toString());
+        } catch (Exception e) {
+            response.status(HttpStatus.BAD_REQUEST).body("failed to process json. " + e.getMessage());
+        }
+        response.build().send();
     }
 
     private void delete(@NotNull HttpExchange exchange) throws IOException {
         @NotNull String path = exchange.getRequestURI().getPath();
         @NotNull String[] parts = path.split("/");
+        @NotNull Response.Builder response = Response.builder(exchange);
 
         if (parts.length != 4 || !parts[3].matches("\\d+")) {
-            @NotNull JsonObject errorObj = new JsonObject();
-            errorObj.addProperty("error", "invalid id on URL");
-            @NotNull String response = errorObj.toString();
-
-            exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(400, response.getBytes(StandardCharsets.UTF_8).length);
-            printResponse(exchange, response);
+            response.status(HttpStatus.BAD_REQUEST).body("invalid id or url").build().send();
+            return;
         }
 
         long id;
         try {
             id = Long.parseLong(parts[3]);
         } catch (NumberFormatException e) {
-            @NotNull JsonObject errorObj = new JsonObject();
-            errorObj.addProperty("error", "invalid id");
-            @NotNull String response = errorObj.toString();
-
-            exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(400, response.getBytes(StandardCharsets.UTF_8).length);
-            printResponse(exchange, response);
+            response.status(HttpStatus.BAD_REQUEST).body("invalid id").build().send();
             return;
         }
 
         boolean removed = users.removeIf(user -> user.getId() == id);
         if (removed) {
-            @NotNull JsonObject success = new JsonObject();
-            success.addProperty("message", "user deleted with success");
-            success.addProperty("id", id);
-
-            @NotNull String response = success.toString();
-
-            exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(200, response.getBytes(StandardCharsets.UTF_8).length);
-            printResponse(exchange, response);
+            response.body("user deleted with success")
+                    .headers("Deleted-ID", String.valueOf(id));
         } else {
-            @NotNull JsonObject errorObj = new JsonObject();
-            errorObj.addProperty("error", "user not found");
-            @NotNull String response = errorObj.toString();
-
-            exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(404, response.getBytes(StandardCharsets.UTF_8).length);
-            printResponse(exchange, response);
+            response.status(HttpStatus.NOT_FOUND).body("user not found");
         }
+        response.build().send();
     }
-
-    private void printResponse(@NotNull HttpExchange exchange, @NotNull String response) throws IOException {
-        @NotNull OutputStream os = exchange.getResponseBody();
-        os.write(response.getBytes(StandardCharsets.UTF_8));
-        os.close();
-    }
-
 }
