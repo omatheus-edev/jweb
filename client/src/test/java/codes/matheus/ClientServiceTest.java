@@ -1,6 +1,7 @@
 package codes.matheus;
 
 import codes.matheus.entity.User;
+import codes.matheus.entity.Username;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -36,8 +37,9 @@ final class ClientServiceTest {
     @Test
     void testDelete() throws IOException, InterruptedException {
         service.create(3, "g4mer", "trol4dor");
-
         assertEquals(3, service.get().size());
+
+        service.login(Username.parse("admin"), "javaislife");
         boolean removed = service.delete(3);
 
         assertTrue(removed);

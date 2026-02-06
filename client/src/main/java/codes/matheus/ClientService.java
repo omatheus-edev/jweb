@@ -1,8 +1,11 @@
 package codes.matheus;
 
+import codes.matheus.authorization.Authorization;
 import codes.matheus.entity.User;
 import codes.matheus.entity.Username;
 import codes.matheus.util.Json;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -15,7 +18,47 @@ import java.util.Optional;
 
 public final class ClientService {
     private final @NotNull String url = "http://localhost:8080/api/users";
+    private final @NotNull String loginUrl = "http://localhost:8080/api/login";
     private final @NotNull HttpClient client = HttpClient.newHttpClient();
+    private final @NotNull Authorization auth = new Authorization();
+
+    public ClientService() {
+    }
+
+    public @NotNull Authorization getAuth() {
+        return auth;
+    }
+
+    public boolean login(@NotNull Username username, @NotNull String password) throws IOException, InterruptedException {
+        @NotNull JsonObject body = new JsonObject();
+        body.addProperty("username", username.getName());
+        body.addProperty("password", password);
+
+        @NotNull HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(loginUrl))
+                .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
+                .header("Content-Type", "application/json")
+                .header("Accept" , "application/json")
+                .build();
+
+
+        @NotNull HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != 200) {
+            System.out.println("login failed: " + response.statusCode() + " - " + response.body());
+            return false;
+        }
+
+        @NotNull JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
+        if (!json.has("token")) {
+            System.out.println("response without token");
+            return false;
+        }
+
+        auth.setToken(json.get("token").getAsString());
+        System.out.println("Login realized with success");
+        return true;
+    }
 
     public @NotNull User create(long id, @NotNull String name, @NotNull String email) throws IOException, InterruptedException {
         @NotNull String body = Json.serialize(new User(id, new Username(name), email)).toString();
@@ -73,10 +116,9 @@ public final class ClientService {
     }
 
     public boolean delete(long id) throws IOException, InterruptedException {
-        @NotNull HttpRequest request = HttpRequest.newBuilder()
+        @NotNull HttpRequest request = auth.addAuth(HttpRequest.newBuilder()
                 .uri(URI.create(url + "/" + id))
-                .DELETE()
-                .build();
+                .DELETE()).build();
 
         @NotNull HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
