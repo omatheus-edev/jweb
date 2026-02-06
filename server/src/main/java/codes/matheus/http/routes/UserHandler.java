@@ -1,7 +1,10 @@
-package codes.matheus.http;
+package codes.matheus.http.routes;
 
 import codes.matheus.entity.User;
+import codes.matheus.http.HttpStatus;
+import codes.matheus.http.Response;
 import codes.matheus.util.Json;
+import codes.matheus.util.JwtUtil;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.jetbrains.annotations.NotNull;
@@ -26,11 +29,20 @@ public final class UserHandler implements HttpHandler {
             post(exchange);
         } else if (exchange.getRequestMethod().equals("DELETE")) {
             delete(exchange);
+        } else if (exchange.getRequestMethod().equals("OPTIONS")) {
+            Response.builder(exchange)
+                    .status(HttpStatus.OK)
+                    .header("Allow", "GET, POST, DELETE, OPTIONS")
+                    .header("Access-Control-Allow-Origin", "*")
+                    .header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+                    .header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+                    .noContent()
+                    .build().send();
         } else {
             Response.builder(exchange)
                     .status(HttpStatus.METHOD_NOT_ALLOWED)
-                    .headers("Allow", "GET, POST, DELETE")
-                    .body("method not allowed")
+                    .header("Allow", "GET, POST, DELETE, OPTIONS")
+                    .error("method not allowed")
                     .build().send();
         }
     }
@@ -47,7 +59,7 @@ public final class UserHandler implements HttpHandler {
             try {
                 id = Long.parseLong(parts[3]);
             } catch (NumberFormatException e) {
-                response.status(HttpStatus.BAD_REQUEST).body("invalid id").build().send();
+                response.status(HttpStatus.BAD_REQUEST).error("invalid id").build().send();
                 return;
             }
 
@@ -55,10 +67,10 @@ public final class UserHandler implements HttpHandler {
             if (found != null) {
                 response.body(Json.serialize(found).toString());
             } else {
-                response.status(HttpStatus.NOT_FOUND).body("user not found");
+                response.status(HttpStatus.NOT_FOUND).error("user not found");
             }
         } else {
-            response.status(HttpStatus.BAD_REQUEST).body("url invalid");
+            response.status(HttpStatus.BAD_REQUEST).error("url invalid");
         }
 
         response.build().send();
@@ -68,7 +80,7 @@ public final class UserHandler implements HttpHandler {
         @NotNull Response.Builder response = Response.builder(exchange);
 
         if (exchange.getRequestURI().getPath().split("/").length != 3) {
-            response.status(HttpStatus.BAD_REQUEST).body("url invalid").build().send();
+            response.status(HttpStatus.BAD_REQUEST).error("url invalid").build().send();
             return;
         }
 
@@ -76,7 +88,7 @@ public final class UserHandler implements HttpHandler {
             @NotNull String body = new String(input.readAllBytes());
 
             if (body.isBlank()) {
-                response.status(HttpStatus.BAD_REQUEST).body("body request is blank").build().send();
+                response.status(HttpStatus.BAD_REQUEST).error("body request is blank").build().send();
                 return;
             }
 
@@ -85,7 +97,7 @@ public final class UserHandler implements HttpHandler {
 
             response.status(HttpStatus.CREATED).body(Json.serialize(user).toString());
         } catch (Exception e) {
-            response.status(HttpStatus.BAD_REQUEST).body("failed to process json. " + e.getMessage());
+            response.status(HttpStatus.BAD_REQUEST).error("failed to process json. " + e.getMessage());
         }
         response.build().send();
     }
@@ -96,7 +108,11 @@ public final class UserHandler implements HttpHandler {
         @NotNull Response.Builder response = Response.builder(exchange);
 
         if (parts.length != 4 || !parts[3].matches("\\d+")) {
-            response.status(HttpStatus.BAD_REQUEST).body("invalid id or url").build().send();
+            response.status(HttpStatus.BAD_REQUEST).error("invalid id or url").build().send();
+            return;
+        }
+
+        if (!isAuthenticated(exchange, response)) {
             return;
         }
 
@@ -104,17 +120,29 @@ public final class UserHandler implements HttpHandler {
         try {
             id = Long.parseLong(parts[3]);
         } catch (NumberFormatException e) {
-            response.status(HttpStatus.BAD_REQUEST).body("invalid id").build().send();
+            response.status(HttpStatus.BAD_REQUEST).error("invalid id").build().send();
             return;
         }
 
         boolean removed = users.removeIf(user -> user.getId() == id);
         if (removed) {
             response.body("user deleted with success")
-                    .headers("Deleted-ID", String.valueOf(id));
+                    .header("Deleted-ID", String.valueOf(id));
         } else {
-            response.status(HttpStatus.NOT_FOUND).body("user not found");
+            response.status(HttpStatus.NOT_FOUND).error("user not found");
         }
         response.build().send();
+    }
+
+    private boolean isAuthenticated(@NotNull HttpExchange exchange, @NotNull Response.Builder response) throws IOException {
+        @NotNull String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+        @Nullable String username = JwtUtil.validate(authHeader);
+
+        if (username == null) {
+            response.status(HttpStatus.UNAUTHORIZED).error("unauthorized, token invalid").build().send();
+            return false;
+        }
+
+        return true;
     }
 }

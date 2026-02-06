@@ -1,6 +1,8 @@
 package codes.matheus.http;
 
 import codes.matheus.entity.User;
+import codes.matheus.http.routes.LoginHandler;
+import codes.matheus.http.routes.UserHandler;
 import com.sun.net.httpserver.HttpServer;
 import org.jetbrains.annotations.NotNull;
 
@@ -20,6 +22,7 @@ public final class Server implements Runnable {
     @Override
     public void run() {
         server.createContext("/api/users", new UserHandler(users));
+        server.createContext("/api/login", new LoginHandler());
         server.start();
 
         System.out.println("Server running in http://localhost:" + server.getAddress().getPort());

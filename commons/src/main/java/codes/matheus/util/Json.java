@@ -53,7 +53,7 @@ public final class Json {
             writer.beginObject();
             writer.name(key).value(value);
             writer.endObject();
-            return writer.get().getAsString();
+            return writer.get().toString();
         } catch (IOException e) {
             throw new RuntimeException("Failed to serialize: " + e.getMessage());
         }
